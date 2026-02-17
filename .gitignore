@@ -1,6 +1,7 @@
 srcs/.env
 secrets/
 *.swp
+inception_subject.md
 
 # Ignore SSL certificates (generated during Docker build, not needed in repo)
 srcs/requirements/nginx/conf/*.crt
