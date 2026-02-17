@@ -1,50 +1,77 @@
 #!/bin/sh
+# ==============================================================================
+# WORDPRESS ENTRYPOINT SCRIPT
+# ==============================================================================
+# This script sets up WordPress on first run and starts PHP-FPM
+# - Waits for MariaDB to be ready
+# - Downloads WordPress core using WP-CLI
+# - Creates wp-config.php with database credentials
+# - Installs WordPress and creates admin + additional user
+# - Starts PHP-FPM server
+# ==============================================================================
+
+# Exit on error, exit on undefined variable
 set -eu
 
-echo "[wp] starting entrypoint"
+echo "[WordPress] Starting entrypoint..."
 
-# Ensure secrets exist (fail with clear message)
+# ------------------------------------------------------------------------------
+# VALIDATION: Ensure all required secrets exist
+# ------------------------------------------------------------------------------
 for f in db_password wp_admin_password wp_user_password; do
   if [ ! -f "/run/secrets/$f" ]; then
-    echo "[wp] missing secret: /run/secrets/$f"
+    echo "[WordPress] ERROR: Missing secret file: /run/secrets/$f"
     exit 1
   fi
 done
 
+# Read passwords from Docker secrets
 DB_PASS="$(cat /run/secrets/db_password)"
 ADMIN_PASS="$(cat /run/secrets/wp_admin_password)"
 USER_PASS="$(cat /run/secrets/wp_user_password)"
 
-echo "[wp] waiting for mariadb..."
+# ------------------------------------------------------------------------------
+# WAIT FOR DATABASE: Ensure MariaDB is ready before proceeding
+# ------------------------------------------------------------------------------
+echo "[WordPress] Waiting for MariaDB to be ready..."
 for i in $(seq 1 120); do
   mariadb -h mariadb -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 && break
   sleep 1
 done
 
-# Hard fail if DB still not reachable
+# Final check - exit with error if database is still not reachable
 mariadb -h mariadb -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 || {
-  echo "[wp] mariadb not reachable with provided credentials"
+  echo "[WordPress] ERROR: MariaDB not reachable with provided credentials"
   exit 1
 }
 
+echo "[WordPress] Database connection successful!"
+
+# Change to WordPress directory
 cd /var/www/html
 
-# Install wp-cli (deterministic path)
+# ------------------------------------------------------------------------------
+# INSTALL WP-CLI: Command-line tool for WordPress management
+# ------------------------------------------------------------------------------
 if [ ! -x /usr/local/bin/wp ]; then
-  echo "[wp] installing wp-cli"
+  echo "[WordPress] Installing WP-CLI..."
   curl -sSLo /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
   chmod +x /usr/local/bin/wp
 fi
 
-# Download WP if needed
+# ------------------------------------------------------------------------------
+# DOWNLOAD WORDPRESS: Get WordPress core files if not present
+# ------------------------------------------------------------------------------
 if [ ! -d wp-admin ]; then
-  echo "[wp] downloading wordpress core"
+  echo "[WordPress] Downloading WordPress core..."
   wp core download --allow-root
 fi
 
-# Create config if needed
+# ------------------------------------------------------------------------------
+# CREATE CONFIG: Generate wp-config.php with database credentials
+# ------------------------------------------------------------------------------
 if [ ! -f wp-config.php ]; then
-  echo "[wp] creating wp-config.php"
+  echo "[WordPress] Creating wp-config.php..."
   wp config create \
     --dbname="$MYSQL_DATABASE" \
     --dbuser="$MYSQL_USER" \
@@ -53,9 +80,11 @@ if [ ! -f wp-config.php ]; then
     --allow-root
 fi
 
-# Install WP if needed
+# ------------------------------------------------------------------------------
+# INSTALL WORDPRESS: Set up site with admin user (only on first run)
+# ------------------------------------------------------------------------------
 if ! wp core is-installed --allow-root >/dev/null 2>&1; then
-  echo "[wp] installing wordpress"
+  echo "[WordPress] Installing WordPress..."
   wp core install \
     --url="$WP_URL" \
     --title="$WP_TITLE" \
@@ -64,14 +93,21 @@ if ! wp core is-installed --allow-root >/dev/null 2>&1; then
     --admin_email="$WP_ADMIN_EMAIL" \
     --allow-root
 
-  echo "[wp] creating second user"
+  # Create second user as required by project
+  echo "[WordPress] Creating additional user..."
   wp user create "$WP_USER" "$WP_USER_EMAIL" \
     --user_pass="$USER_PASS" \
     --role=author \
     --allow-root
 fi
 
+# ------------------------------------------------------------------------------
+# PERMISSIONS: Ensure WordPress files are owned by web server user
+# ------------------------------------------------------------------------------
 chown -R www-data:www-data /var/www/html
 
-echo "[wp] starting php-fpm"
+# ------------------------------------------------------------------------------
+# START PHP-FPM: Launch FastCGI Process Manager
+# ------------------------------------------------------------------------------
+echo "[WordPress] Starting PHP-FPM..."
 exec php-fpm8.2 -F

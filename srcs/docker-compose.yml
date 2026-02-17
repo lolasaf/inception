@@ -1,75 +1,109 @@
+# ==============================================================================
+# INCEPTION DOCKER COMPOSE CONFIGURATION
+# ==============================================================================
+# Three-tier WordPress infrastructure:
+#   1. MariaDB  - Database layer
+#   2. WordPress - Application layer (PHP-FPM: FastCGI Process Manager)
+#   3. Nginx    - Web server layer (reverse proxy)
+# ==============================================================================
+
 services:
+  # ----------------------------------------------------------------------------
+  # MARIADB SERVICE - Database Server
+  # ----------------------------------------------------------------------------
   mariadb:
     container_name: mariadb
-    image: mariadb:inception
+    image: mariadb:inception              # Custom image built from local Dockerfile
     build: ./requirements/mariadb
-    env_file: .env
+    env_file: .env                        # Load environment variables
     secrets:
-      - db_root_password
-      - db_password
+      - db_root_password                  # Root password from secrets file
+      - db_password                       # WordPress user password from secrets
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql       # Persist database data
     networks:
-      - inception
-    restart: unless-stopped
+      - inception                         # Internal network for inter-container communication
+    restart: unless-stopped               # Auto-restart on failure
 
+  # ----------------------------------------------------------------------------
+  # WORDPRESS SERVICE - PHP Application
+  # ----------------------------------------------------------------------------
   wordpress:
     container_name: wordpress
-    image: wordpress:inception
+    image: wordpress:inception            # Custom image with PHP-FPM
     build: ./requirements/wordpress
-    env_file: .env
+    env_file: .env                        # WordPress configuration variables
     secrets:
-      - db_password
-      - wp_admin_password
-      - wp_user_password
+      - db_password                       # Database connection password
+      - wp_admin_password                 # WordPress admin user password
+      - wp_user_password                  # WordPress additional user password
     volumes:
-      - wordpress_data:/var/www/html
+      - wordpress_data:/var/www/html      # Persist WordPress files
     depends_on:
-      - mariadb
+      - mariadb                           # Wait for database to start first
     networks:
       - inception
     restart: unless-stopped
 
+  # ----------------------------------------------------------------------------
+  # NGINX SERVICE - Web Server & Reverse Proxy
+  # ----------------------------------------------------------------------------
   nginx:
     container_name: nginx
-    image: nginx:inception
+    image: nginx:inception                # Custom nginx with SSL configuration
     build: ./requirements/nginx
     env_file: .env
     ports:
-      - "443:443"
-      - "80:80"
+      - "443:443"                         # HTTPS port (TODO: Add SSL certificates)
+      - "80:80"                           # HTTP port
     volumes:
-      - wordpress_data:/var/www/html:ro
+      - wordpress_data:/var/www/html:ro   # Read-only access to WordPress files
     depends_on:
-      - wordpress
+      - wordpress                         # Wait for WordPress to be ready
     networks:
       - inception
     restart: unless-stopped
 
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+# Creates an isolated bridge network for secure inter-container communication
 networks:
   inception:
-    driver: bridge
+    driver: bridge                        # Standard Docker bridge network
 
+# ==============================================================================
+# VOLUMES
+# ==============================================================================
+# Persistent storage mapped to host directories for data persistence
 volumes:
+  # MariaDB data directory - stores all database files
   mariadb_data:
     driver: local
-    # driver_opts:
-    #   type: none
-    #   o: bind
-    #   device: /home/wel-safa/data/mariadb
+    driver_opts:
+      type: none                          # Bind mount (not a Docker volume)
+      o: bind
+      device: /home/wel-safa/data/mariadb # Host path for database storage
+
+  # WordPress data directory - stores WordPress files and uploads
   wordpress_data:
     driver: local
-    # driver_opts:
-    #   type: none
-    #   o: bind
-    #   device: /home/wel-safa/data/wordpress
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/wel-safa/data/wordpress # Host path for WordPress files
 
+# ==============================================================================
+# SECRETS
+# ==============================================================================
+# Secure way to inject sensitive data (passwords) into containers
+# Mounted at /run/secrets/<secret_name> inside containers
 secrets:
   db_root_password:
-    file: ../secrets/db_root_password.txt
+    file: ../secrets/db_root_password.txt    # MariaDB root password
   db_password:
-    file: ../secrets/db_password.txt
+    file: ../secrets/db_password.txt         # WordPress database user password
   wp_admin_password:
-    file: ../secrets/wp_admin_password.txt
+    file: ../secrets/wp_admin_password.txt   # WordPress admin user password
   wp_user_password:
-    file: ../secrets/wp_user_password.txt
+    file: ../secrets/wp_user_password.txt    # WordPress additional user password
