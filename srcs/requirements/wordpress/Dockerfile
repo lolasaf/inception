@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mariadb-client \
     curl \
     ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+    net-tools \
+&& apt-get clean \
+&& rm -rf /var/lib/apt/lists/*
 
 # Configure PHP-FPM to listen on port 9000 for FastCGI connections from nginx
 RUN mkdir -p /run/php \

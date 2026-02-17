@@ -13,7 +13,7 @@ This document explains how to use and manage the Inception WordPress infrastruct
 Before starting, ensure your system has:
 - Docker and Docker Compose installed
 - At least 2GB of free disk space
-- Ports 80 and 443 available
+- Port 443 available
 
 ### Initial Setup
 
@@ -211,10 +211,9 @@ docker compose -f srcs/docker-compose.yml logs nginx
 
 ### Ports Already in Use
 
-If ports 80 or 443 are already in use:
+If port 443 is already in use:
 ```bash
 # Find what's using the port
-sudo lsof -i :80
 sudo lsof -i :443
 
 # Stop the conflicting service
@@ -270,7 +269,7 @@ make
 ### What Each Service Does
 
 **Nginx (Web Server)**
-- Listens on ports 80 (HTTP) and 443 (HTTPS)
+- Listens on port 443 (HTTPS)
 - Serves static files (images, CSS, JavaScript)
 - Forwards PHP requests to WordPress container
 - Acts as the only entry point to your infrastructure
@@ -290,7 +289,6 @@ make
 
 | Service   | External Port | Internal Port | Protocol |
 |-----------|---------------|---------------|----------|
-| Nginx     | 80            | 80            | HTTP     |
 | Nginx     | 443           | 443           | HTTPS*   |
 | WordPress | -             | 9000          | FastCGI  |
 | MariaDB   | -             | 3306          | MySQL    |

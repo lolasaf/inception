@@ -7,27 +7,27 @@ Inception is a containerized web application infrastructure following a three-ti
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              Client Browser                      │
+│              Client Browser                     │
 └────────────────────┬────────────────────────────┘
-                     │ HTTP/HTTPS (Port 80/443)
+                     │ HTTP/HTTPS (Port 443)
                      ▼
 ┌─────────────────────────────────────────────────┐
 │  Docker Host (wel-safa.42.fr)                   │
 │  ┌───────────────────────────────────────────┐  │
 │  │  Docker Network: inception (bridge)       │  │
 │  │                                           │  │
-│  │  ┌──────────┐    ┌──────────┐    ┌─────┐│  │
-│  │  │  nginx   │───▶│wordpress │───▶│maria││  │
-│  │  │  :80/443 │    │  :9000   │    │ db  ││  │
-│  │  └──────────┘    └──────────┘    │:3306││  │
-│  │       │               │           └─────┘│  │
+│  │  ┌──────────┐    ┌──────────┐    ┌─────┐  │  │
+│  │  │  nginx   │───▶│wordpress │───▶│maria│  │  │
+│  │  │  :443    │    │  :9000   │    │ db  │  │  │
+│  │  └──────────┘    └──────────┘    │:3306│  │  │
+│  │       │               │          └─────┘  │  │
 │  │       │               │              │    │  │
 │  │       ▼               ▼              ▼    │  │
-│  │  (static files) (wp files)    (database) │  │
+│  │  (static files) (wp files)    (database)  │  │
 │  └───────────────────────────────────────────┘  │
 │              │           │              │       │
 │              ▼           ▼              ▼       │
-│   /home/wel-safa/data/wordpress  mariadb       │
+│   /home/wel-safa/data/wordpress      mariadb    │
 └─────────────────────────────────────────────────┘
 ```
 

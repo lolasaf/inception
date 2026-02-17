@@ -2,36 +2,42 @@
 # NGINX CONFIGURATION FOR WORDPRESS
 # ==============================================================================
 # This configuration serves WordPress via php-fpm and handles static files
-# TODO: Add SSL/TLS configuration for HTTPS (required for production)
 # ==============================================================================
 
-# HTTP Server Configuration
+# HTTPS Server Configuration
 server {
 	# Listen on port 80 for IPv4 and IPv6
-	listen 80 default_server;
-	listen [::]:80 default_server;
+	# listen 80 default_server;
+	# listen [::]:80 default_server;
 
-	# TODO: Enable HTTPS (SSL/TLS)
-	# You need to:
+	# Enable HTTPS (SSL/TLS)
 	# 1. Generate or obtain SSL certificates
 	# 2. Uncomment and configure the lines below
 	# 3. Update EXPOSE in Dockerfile to include 443
-	#
-	# listen 443 ssl default_server;
-	# listen [::]:443 ssl default_server;
-	# ssl_certificate /path/to/certificate.crt;
-	# ssl_certificate_key /path/to/private.key;
-	# ssl_protocols TLSv1.2 TLSv1.3;
-	# ssl_ciphers HIGH:!aNULL:!MD5;
+	
+	# Listen on port 443 with SSL/TLS enabled
+	listen 443 ssl default_server;
+	listen [::]:443 ssl default_server;
+
+	# Server name (must match SSL certificate CN)
+	server_name wel-safa.42.fr;
+
+	# SSL Certificate paths
+	ssl_certificate /etc/nginx/ssl/certificate.crt;
+	ssl_certificate_key /etc/nginx/ssl/private.key;
+
+	# SSL Protocol versions - ONLY TLSv1.2 and TLSv1.3 allowed
+	ssl_protocols TLSv1.2 TLSv1.3;
+
+	# Strong cipher suites (recommended for security)
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
 
 	# Document root - where WordPress files are located
 	root /var/www/html;
 
 	# Priority order for index files (WordPress uses index.php)
 	index index.php index.html index.htm index.nginx-debian.html;
-
-	# Server name (use domain from .env or _ for any domain)
-	server_name _;
 
 	# ----------------------------------------------------------------------
 	# LOCATION BLOCK: Handle general requests
@@ -44,27 +50,26 @@ server {
 
 	# ----------------------------------------------------------------------
 	# LOCATION BLOCK: Handle PHP files via FastCGI (php-fpm)
+	# CGI = Common Gateway Interface, FastCGI is a protocol 
+	# for interfacing interactive programs with a web server
 	# ----------------------------------------------------------------------
 	location ~ \.php$ {
-		# Include standard FastCGI parameters
+		# Include standard FastCGI parameters from php-fpm configuration
 		include snippets/fastcgi-php.conf;
 	
 		# Forward PHP requests to WordPress container on port 9000
-		# 'wordpress' is the service name from docker-compose.yml
+		# 'wordpress' is the service name here from docker-compose.yml
 		fastcgi_pass wordpress:9000;
 		
 		# Additional FastCGI parameters for WordPress
+		# Override/add WordPress-specific FastCGI parameters
 		fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
 		fastcgi_param PATH_INFO $fastcgi_path_info;
 	}
 
 	# ----------------------------------------------------------------------
-	# SECURITY: Deny access to .htaccess and other hidden files
+	# SECURITY: Deny access to hidden files & directories
 	# ----------------------------------------------------------------------
-	location ~ /\.ht {
-		deny all;
-	}
-	
 	location ~ /\. {
 		deny all;
 	}
