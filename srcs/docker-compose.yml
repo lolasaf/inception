@@ -13,7 +13,7 @@ services:
   # ----------------------------------------------------------------------------
   mariadb:
     container_name: mariadb
-    image: mariadb                        # Custom image built from local Dockerfile
+    image: mariadb:inception                        # Custom image built from local Dockerfile
     build: ./requirements/mariadb
     env_file: .env                        # Load environment variables
     secrets:
@@ -30,7 +30,7 @@ services:
   # ----------------------------------------------------------------------------
   wordpress:
     container_name: wordpress
-    image: wordpress                      # Custom image with PHP-FPM
+    image: wordpress:inception                      # Custom image with PHP-FPM
     build: ./requirements/wordpress
     env_file: .env                        # WordPress configuration variables
     secrets:
@@ -50,7 +50,7 @@ services:
   # ----------------------------------------------------------------------------
   nginx:
     container_name: nginx
-    image: nginx                          # Custom nginx with SSL configuration
+    image: nginx:inception                          # Custom nginx with SSL configuration
     build:
       context: ./requirements/nginx
       args:
