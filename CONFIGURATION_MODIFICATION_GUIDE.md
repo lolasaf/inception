@@ -50,33 +50,41 @@ nginx:
 ```
 
 **What this does:**
-- Left side (8443) = Port on your host machine
-- Right side (443) = Port inside the container (unchanged)
-- Now access via `https://wel-safa.42.fr:8443` instead of `https://wel-safa.42.fr`
+- Uses port mapping: `8443:443`
+- Host accesses via port 8443
+- Container listens on port 443
+- Users access via `https://wel-safa.42.fr:8443`
+
+**Alternative (simpler):** Use matching ports `8443:8443`
+- Both host and container use 8443
+- Requires updating both docker-compose.yml AND nginx.conf
+- More intuitive: same port everywhere
 
 ### Step 2: Update NGINX Configuration
 
 **File:** `srcs/requirements/nginx/conf/default`
 
-**Current configuration:**
+**If using port mapping `8443:443` (asymmetric):**
+No changes needed. Keep `listen 443` because it's the container's internal port.
+
 ```nginx
 server {
-    listen 443 ssl default_server;
+    listen 443 ssl default_server;      # Keep as-is
     listen [::]:443 ssl default_server;
     # ... rest of config ...
 }
 ```
 
-**Modified configuration (port 8443 example):**
+**If using matching ports `8443:8443` (simpler):**
+Change both docker-compose.yml and nginx.conf to use 8443:
+
 ```nginx
 server {
-    listen 8443 ssl default_server;
+    listen 8443 ssl default_server;     # Change to 8443
     listen [::]:8443 ssl default_server;
     # ... rest of config ...
 }
 ```
-
-**Note:** This line is NOT needed since we already mapped the port in docker-compose. However, it's good practice to document the actual listening port.
 
 ### Step 3: Rebuild and Restart
 
