@@ -8,26 +8,25 @@
 # - Starts MariaDB server listening on all interfaces
 # ==============================================================================
 
-# Exit on error, exit on undefined variable
-set -eu
+# Exit on error
+set -e
 
 # ------------------------------------------------------------------------------
-# SETUP: Create socket directory and set permissions
+# CREATE RUNTIME DIRECTORY and SET OWNERSHIP
 # ------------------------------------------------------------------------------
 mkdir -p /run/mysqld
 chown -R mysql:mysql /run/mysqld /var/lib/mysql
 
 # ------------------------------------------------------------------------------
-# INITIALIZATION: Only runs on first container start (empty volume)
+# INITIALIZE DATABASE IF NEEDED: only runs on empty data directory
 # ------------------------------------------------------------------------------
 if [ ! -d "/var/lib/mysql/mysql" ]; then
-  echo "[MariaDB] First run detected - initializing database..."
-  
-  # Create system tables (mysql, performance_schema, etc.)
+  echo "[MariaDB] Initializing database..."
   mariadb-install-db --user=mysql --datadir=/var/lib/mysql
 
   # Start MariaDB temporarily (local socket only, no network access)
   # This allows us to run SQL commands to set up users and databases
+  echo "[MariaDB] Starting temporary server..."
   mysqld --user=mysql --datadir=/var/lib/mysql --skip-networking --socket=/run/mysqld/mysqld.sock &
   pid="$!"
 
@@ -38,7 +37,7 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     sleep 1
   done
 
-  # Read passwords from Docker secrets (secure way to inject credentials)
+  # Read passwords from Docker secrets
   ROOT_PASS="$(cat /run/secrets/db_root_password)"
   DB_PASS="$(cat /run/secrets/db_password)"
 
@@ -52,6 +51,17 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%';
     FLUSH PRIVILEGES;
 SQL
+
+  # Verify the WordPress user was created successfully
+  echo "[MariaDB] Verifying WordPress user was created..."
+  if ! mariadb --socket=/run/mysqld/mysqld.sock -uroot -p"${ROOT_PASS}" -e "SELECT User FROM mysql.user WHERE User='${MYSQL_USER}' AND Host='%';" 2>/dev/null | grep -q "${MYSQL_USER}"; then
+    echo "[MariaDB] ERROR: Initialization failed - WordPress user not created"
+    echo "[MariaDB] Cleaning up failed initialization..."
+    mariadb-admin --socket=/run/mysqld/mysqld.sock shutdown 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    rm -rf /var/lib/mysql/mysql
+    exit 1
+  fi
 
   # Stop the temporary server gracefully
   echo "[MariaDB] Shutting down temporary server..."

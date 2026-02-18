@@ -6,9 +6,6 @@
 
 # HTTPS Server Configuration
 server {
-	# Listen on port 80 for IPv4 and IPv6
-	# listen 80 default_server;
-	# listen [::]:80 default_server;
 
 	# Enable HTTPS (SSL/TLS)
 	# 1. Generate or obtain SSL certificates
