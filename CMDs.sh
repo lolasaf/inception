@@ -20,18 +20,43 @@ WP_USER=editor
 WP_USER_EMAIL=editor@42.fr
 EOF
 
-# Check running containers and ports
+# build all
+make
+
+# Check running containers and ports used
 cd srcs
 docker compose ps
 
-sudo rm -rf /home/wel-safa/data/mariadb/* && sudo rm -rf /home/wel-safa/data/wordpress/* && sleep 2
+# Check SSL certificate
+curl -v https://wel-safa.42.fr
+openssl s_client -connect wel-safa.42.fr:443
+
+# Check http / https conncetion
+curl -Ik http://wel-safa.42.fr
+curl -Ik https://wel-safa.42.fr
 
 # Clean everything
 make fclean
-rm -rf ~/data/*
 
 # Start fresh
 make
 
 # Check logs
 docker compose logs mariadb
+
+# Check volumes
+docker volume ls
+docker volume inspect <volume_name>
+
+# Login to the database (in srcs directory):
+# from host:
+docker exec -it mariadb mariadb -uwpuser -p wordpress
+# from root:
+docker exec -it mariadb mariadb -uroot -p"$(cat ../secrets/db_root_password.txt | tr -d '\n')" wordpress
+
+# once logged in, run SQL commands to check tables and users:
+SHOW TABLES;
+SELECT user_login FROM wp_users;
+SELECT * FROM <table_name> LIMIT 1;
+exit;
+

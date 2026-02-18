@@ -37,9 +37,9 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     sleep 1
   done
 
-  # Read passwords from Docker secrets
-  ROOT_PASS="$(cat /run/secrets/db_root_password)"
-  DB_PASS="$(cat /run/secrets/db_password)"
+  # Read passwords from Docker secrets (remove trailing newlines)
+  ROOT_PASS="$(cat /run/secrets/db_root_password | tr -d '\n')"
+  DB_PASS="$(cat /run/secrets/db_password | tr -d '\n')"
 
   # Execute SQL commands to set up database and users
   # Uses environment variables from .env file: MYSQL_DATABASE, MYSQL_USER
@@ -69,6 +69,8 @@ SQL
   wait "$pid"
   
   echo "[MariaDB] Initialization complete!"
+else
+  echo "[MariaDB] Database already exists - reusing existing database"
 fi
 
 # ------------------------------------------------------------------------------
