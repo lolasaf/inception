@@ -33,15 +33,16 @@ down:
 # Restart: stop then start services
 re: down up
 
-# Clean: stop containers and remove volumes (WARNING: deletes database data)
 clean:
 	@echo "Stopping containers and removing volumes..."
 	$(COMPOSE) down --volumes
 
-# Full clean: remove all Docker resources (images, containers, networks)
+# Full clean: remove all Docker resources AND host data (WARNING: deletes ALL data)
 fclean: clean
 	@echo "Removing all Docker resources..."
 	docker system prune -af
+	@echo "Removing host data directories..."
+	sudo rm -rf /home/$(USER)/data/mariadb /home/$(USER)/data/wordpress
 
 # Declare phony targets (not actual files)
 .PHONY: all up down re clean fclean

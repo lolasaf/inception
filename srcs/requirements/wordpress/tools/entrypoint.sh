@@ -35,12 +35,12 @@ USER_PASS="$(cat /run/secrets/wp_user_password)"
 # ------------------------------------------------------------------------------
 echo "[WordPress] Waiting for MariaDB to be ready..."
 for i in $(seq 1 120); do
-  mariadb -h mariadb -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 && break
+  mariadb -h mariadb -P 3306 -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 && break
   sleep 1
 done
 
 # Final check - exit with error if database is still not reachable
-mariadb -h mariadb -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 || {
+mariadb -h mariadb -P 3306 -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1 || {
   echo "[WordPress] ERROR: MariaDB not reachable with provided credentials"
   exit 1
 }
@@ -76,7 +76,7 @@ if [ ! -f wp-config.php ]; then
     --dbname="$MYSQL_DATABASE" \
     --dbuser="$MYSQL_USER" \
     --dbpass="$DB_PASS" \
-    --dbhost="mariadb" \
+    --dbhost="mariadb:3306" \
     --allow-root
 fi
 

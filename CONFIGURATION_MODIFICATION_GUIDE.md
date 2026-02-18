@@ -1,284 +1,114 @@
-# Configuration Modification Guide for Inception Evaluation
+# Service 1: Nginx: Change to Port 8443 from 443
 
-This guide explains how to modify service configurations during the evaluation, specifically for port changes. Each service has different configuration points that must be updated together to ensure functionality.
-
----
-
-## Overview of Services & Their Ports
-
-- **NGINX**
-    - Default Port: 443 (HTTPS)
-    - Type: Published (Host ↔ Container)
-    - Configuration Files: `docker-compose.yml` + `nginx/conf/default`
-
-- **WordPress PHP-FPM**
-    - Default Port: 9000
-    - Type: Internal Only
-    - Configuration Files: `wordpress/Dockerfile` + `nginx/conf/default`
-
-- **MariaDB**
-    - Default Port: 3306
-    - Type: Internal Only
-    - Configuration Files: `mariadb/Dockerfile` (never published)
-
----
-
-## Service 1: NGINX (Port 443 → Custom Port)
-
-**Example: Change from port 443 to port 8443**
-
-### Step 1: Update docker-compose.yml
-
-**File:** `srcs/docker-compose.yml`
-
-**Current configuration:**
+**1. Edit `srcs/docker-compose.yml`**
 ```yaml
-nginx:
-  container_name: nginx
-  # ... other config ...
-  ports:
-    - "443:443"
+ports:
+  - "8443:8443"
 ```
 
-**Modified configuration:**
-```yaml
-nginx:
-  container_name: nginx
-  # ... other config ...
-  ports:
-    - "8443:443"
-```
-
-**What this does:**
-- Uses port mapping: `8443:443`
-- Host accesses via port 8443
-- Container listens on port 443
-- Users access via `https://wel-safa.42.fr:8443`
-
-**Alternative (simpler):** Use matching ports `8443:8443`
-- Both host and container use 8443
-- Requires updating both docker-compose.yml AND nginx.conf
-- More intuitive: same port everywhere
-
-### Step 2: Update NGINX Configuration
-
-**File:** `srcs/requirements/nginx/conf/default`
-
-**If using port mapping `8443:443` (asymmetric):**
-No changes needed. Keep `listen 443` because it's the container's internal port.
-
+**2. Edit `srcs/requirements/nginx/conf/default`**
 ```nginx
-server {
-    listen 443 ssl default_server;      # Keep as-is
-    listen [::]:443 ssl default_server;
-    # ... rest of config ...
-}
+listen 8443 ssl default_server;
+listen [::]:8443 ssl default_server;
 ```
 
-**If using matching ports `8443:8443` (simpler):**
-Change both docker-compose.yml and nginx.conf to use 8443:
-
-```nginx
-server {
-    listen 8443 ssl default_server;     # Change to 8443
-    listen [::]:8443 ssl default_server;
-    # ... rest of config ...
-}
+**3. Edit `srcs/.env`**
+```dotenv
+WP_URL=https://wel-safa.42.fr:8443
 ```
 
-### Step 3: Rebuild and Restart
-
+**4. Run**
 ```bash
-# From the project root directory
-make down        # Stop containers
-make build       # Rebuild images with new configurations
-make up          # Start containers
-
-# Or using docker-compose directly:
-cd srcs
-docker-compose down
-docker-compose build
-docker-compose up -d
+make fclean && make up
 ```
 
-### Verification
-
+**5. Test**
 ```bash
-# Check if NGINX is accessible on the new port
-curl -k https://wel-safa.42.fr:8443
-
-# Or in browser: https://wel-safa.42.fr:8443
+curl -Ik https://wel-safa.42.fr:8443
+# HTTP/1.1 200 OK
+# or on browser https://wel-safa.42.fr:8443
 ```
 
 ---
 
-## Service 2: WordPress PHP-FPM (Port 9000 → Custom Port)
+## Service 2: WordPress PHP-FPM (Port 9000 → 9001)
 
-**Example: Change from port 9000 to port 9001**
-
-### Step 1: Update WordPress Dockerfile
-
-**File:** `srcs/requirements/wordpress/Dockerfile`
-
-**Current configuration:**
+**1. Edit `srcs/requirements/wordpress/Dockerfile`**
 ```dockerfile
-RUN mkdir -p /run/php \
- && sed -i 's|^listen = .*|listen = 9000|' /etc/php/8.2/fpm/pool.d/www.conf
-
-# ... other config ...
-
-EXPOSE 9000
-```
-
-**Modified configuration (port 9001 example):**
-```dockerfile
-RUN mkdir -p /run/php \
- && sed -i 's|^listen = .*|listen = 9001|' /etc/php/8.2/fpm/pool.d/www.conf
-
-# ... other config ...
-
+RUN sed -i 's|^listen = .*|listen = 9001|' /etc/php/8.2/fpm/pool.d/www.conf
 EXPOSE 9001
 ```
 
-**What this does:**
-- Changes the PHP-FPM listening port inside the container
-- EXPOSE is just documentation; the actual port mapping happens in docker-compose
-
-### Step 2: Update NGINX Configuration
-
-**File:** `srcs/requirements/nginx/conf/default`
-
-**Current configuration:**
+**2. Edit `srcs/requirements/nginx/conf/default`**
 ```nginx
-location ~ \.php$ {
-    include snippets/fastcgi-php.conf;
-    
-    # Forward PHP requests to WordPress container on port 9000
-    fastcgi_pass wordpress:9000;
-    
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    fastcgi_param PATH_INFO $fastcgi_path_info;
-}
+fastcgi_pass wordpress:9001;
 ```
 
-**Modified configuration (port 9001 example):**
-```nginx
-location ~ \.php$ {
-    include snippets/fastcgi-php.conf;
-    
-    # Forward PHP requests to WordPress container on port 9001
-    fastcgi_pass wordpress:9001;
-    
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    fastcgi_param PATH_INFO $fastcgi_path_info;
-}
-```
-
-**Important:** Both places must match! NGINX must know which port WordPress is listening on.
-
-### Step 3: Rebuild and Restart
-
+**3. Run**
 ```bash
-make down        # Stop containers
-make build       # Rebuild images (WordPress Dockerfile will be rebuilt)
-make up          # Start containers
+make fclean && make up
 ```
 
-### Verification
-
+**4. Test**
 ```bash
-# Check if wordpress container is listening on the new port
 docker exec wordpress netstat -tuln | grep 9001
-
-# Check NGINX logs for any connection errors
-docker logs nginx
-
-# Test if WordPress is still accessible via HTTPS (verify in browser)
-# The change should be transparent to the end user
+curl -Ik https://wel-safa.42.fr
+# HTTP/1.1 200 OK
 ```
 
 ---
 
 ## Service 3: MariaDB (Port 3306 → Custom Port)
 
-**Example: Change from port 3306 to port 3307**
-
-### Step 1: Update MariaDB Dockerfile
-
-**File:** `srcs/requirements/mariadb/Dockerfile`
-
-**Current configuration:**
-```dockerfile
-EXPOSE 3306
-```
-
-**Modified configuration (port 3307 example):**
+**1. Edit `srcs/requirements/mariadb/Dockerfile`**
 ```dockerfile
 EXPOSE 3307
 ```
 
-### Step 2: Update MariaDB Configuration
-
-**File:** `srcs/requirements/mariadb/tools/entrypoint.sh`
-
-Add or modify the MariaDB server configuration to listen on the new port. This is typically done in the my.cnf configuration file:
-
-**Option A: Modify during container startup (recommended)**
-
-Add this to your entrypoint script before starting MariaDB:
-
+**2. Edit `srcs/requirements/mariadb/tools/entrypoint.sh`** (change the mysqld startup line)
 ```bash
-# Set the port for MariaDB
-sed -i 's|^port = .*|port = 3307|' /etc/mysql/mariadb.conf.d/50-server.cnf
-
-# Or if using a custom config:
-echo "[mysqld]\nport=3307" >> /etc/mysql/mariadb.conf.d/custom.cnf
+exec mysqld --user=mysql --datadir=/var/lib/mysql --bind-address=0.0.0.0 --port=3307
 ```
 
-### Step 3: Update WordPress Entrypoint Script
-
-**File:** `srcs/requirements/wordpress/tools/entrypoint.sh`
-
-**Current configuration (look for the MySQL connection):**
+**3. Edit `srcs/requirements/wordpress/tools/entrypoint.sh`** (update DB port)
 ```bash
-# MySQL connection typically uses:
-mysql -h mariadb -u root -p"$ROOT_PASS" ...
+mariadb -h mariadb -P 3307 -u "$MYSQL_USER" -p"$DB_PASS" -e "SELECT 1" "$MYSQL_DATABASE" >/dev/null 2>&1
 ```
 
-**No changes needed!** WordPress connects to MariaDB using DNS resolution (service name "mariadb"), not the port directly in docker-compose. The port change is the container's internal concern.
-
-**However**, if there are explicit port references, update them:
 ```bash
-# If you see: mysql -h mariadb -P 3306 ...
-# Change to: mysql -h mariadb -P 3307 ...
+wp config create \
+  --dbhost="mariadb:3307"
 ```
 
-### Step 4: Rebuild and Restart
-
+**4. Run**
 ```bash
-make down        # Stop containers
-make build       # Rebuild images
-make up          # Start containers
+make fclean && make up
 ```
 
-### Verification
-
+**5. Test**
 ```bash
-# Check if MariaDB is listening on the new port inside the container
 docker exec mariadb netstat -tuln | grep 3307
-
-# Test connection from WordPress container
-docker exec wordpress mysql -h mariadb -P 3307 -u root -p"$(cat /run/secrets/db_root_password)" -e "SELECT 1;"
-
-# Verify WordPress still works
-curl -k https://wel-safa.42.fr
+curl -Ik https://wel-safa.42.fr
+# HTTP/1.1 200 OK
 ```
 
 ---
 
 ## Important Notes for Evaluation
 
-### Network Isolation Reminder
+### Understanding Bind Mounts vs Docker Volumes
+
+Your project uses **bind mounts** (not Docker volumes):
+```yaml
+mariadb_data:
+  driver_opts:
+    type: none
+    device: /home/wel-safa/data/mariadb  # ← Host directory
+```
+
+**This is important:** When you run `docker compose down --volumes`, it does **NOT** delete the host directories. It only removes Docker metadata. The actual `/home/wel-safa/data/` directories remain on your host.
+
+**For port changes:** You must delete the actual host directories, not just use `docker compose down --volumes`. This is why `make fclean` has been updated to explicitly delete `/home/wel-safa/data/mariadb` and `/home/wel-safa/data/wordpress`.
 - **NGINX** (port 443): Published to host - accessible from outside
 - **WordPress PHP-FPM** (port 9000): Internal only - only NGINX can access it
 - **MariaDB** (port 3306): Internal only - only WordPress can access it
@@ -292,7 +122,7 @@ When modifying any service port:
 - [ ] Update docker-compose.yml (if host port is published)
 - [ ] Update the service's Dockerfile(s)
 - [ ] Update dependent service configurations (e.g., NGINX must know WordPress's new port)
-- [ ] Run `make down && make build && make up`
+- [ ] Run `make down && make up`
 - [ ] Verify service is accessible or functioning correctly
 - [ ] Check logs for connection errors: `docker logs <service_name>`
 - [ ] Test full stack (e.g., access WordPress and verify database queries work)
@@ -309,7 +139,6 @@ make down
 git checkout srcs/
 
 # Rebuild and restart
-make build
 make up
 ```
 
@@ -322,10 +151,7 @@ make up
 # 2. Stop current services
 make down
 
-# 3. Rebuild with new configurations
-make build
-
-# 4. Start everything
+# 3. Rebuild and start everything
 make up
 
 # 5. Verify services are running
@@ -359,6 +185,5 @@ curl -k https://wel-safa.42.fr
 git checkout srcs/          # (if needed to revert)
 # Edit configuration files
 make down                   # Stop containers
-make build                  # Rebuild with new configs
-make up                     # Start services
+make up                     # Rebuild with new configs and start services
 # Verify functionality
